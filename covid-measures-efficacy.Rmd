@@ -1,0 +1,640 @@
+---
+title: "The efficacy of global health measures in containing COVID-19"
+subtitle: Interaction between culture and public policy
+author: Rivaldo Philip
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+#font-import:
+  #font-family: 'Yantramanav'
+output:
+  html_document:
+    number_sections: no
+    self_contained: yes
+keywords: machine learning; econometrics; panel data; COVID-19; coronavrius
+theme: null
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo=TRUE, message=FALSE, warning=FALSE, comment=NA)
+```
+
+```{r, include=FALSE}
+# install.packages("readr")
+# install.packages("tidyverse")
+# install.packages("caret")
+# install.packages("magrittr")
+# install.packages("dplyr")
+# install.packages("phtt")
+# install.packages("Hmisc")
+# install.packages("plm")
+# install.packages("punitroots")
+# install.packages("panelView")
+# install.packages("data.table")
+# install.packages("glmnet")
+# install.packages("FarmSelect")
+# install.packages("cdata")
+# install.packages("hdm")
+# install.packages("gglasso")
+```
+
+```{r, results=FALSE}
+library(readr)
+library(tidyverse)
+library(caret)
+library(dplyr)
+library(magrittr)
+library(zoo)
+library(phtt)
+library(Hmisc)
+library(plm)
+library(punitroots)
+library(panelView) 
+library(data.table)
+library(cdata)
+library(glmnet)
+library(hdm)
+library(gglasso)
+library(lmtest)
+library(FarmSelect)
+```
+
+```{r, include=FALSE}
+# # install.packages("CADFtest")
+# # remotes::install_github("joachim-gassen/tidycovid19")
+# # remotes::install_cran("Rilostat")
+# library(tidycovid19)
+```
+
+```{r, include=FALSE}
+# merged <- download_merged_data(cached = TRUE, silent = TRUE) %>%
+#   dplyr::select(-c("soc_dist","mov_rest","pub_health","gov_soc_econ","lockdown","gtrends_score","gtrends_country_score","timestamp"))
+# 
+# wbank_vars = c("SP.POP.DPND","SI.POV.GINI","SL.UEM.TOTL.ZS")
+# wbank_labels = c("dratio", "gini","unemp")
+# 
+# wbank <- download_wbank_data(wbank_vars, wbank_labels) %>%
+#   dplyr::select(-.data$country, -.data$timestamp, -income, -region)
+# 
+# policy <- read_csv("OxCGRT_latest.csv") %>%
+#   dplyr::select(-ends_with("Flag"),-starts_with("E"),-starts_with("Government"),-starts_with("Containment"),-c("M1_Wildcard","ConfirmedCases","ConfirmedDeaths","StringencyIndex","StringencyLegacyIndex","StringencyLegacyIndexForDisplay")) %>%
+#   mutate(Date = format(as.Date(as.character(Date), format = "%Y%m%d"),"%Y-%m-%d")) %>%
+#   dplyr::rename(iso3c = CountryCode, date=Date) %>%
+#   dplyr::select(-c("CountryName"))
+# policy$date=as.Date(policy$date, format="%Y-%m-%d")
+# names(policy)[-2] <- substr(names(policy)[-2],1,2)
+# policy %<>% dplyr::rename("iso3c"="is")
+# 
+# physicians <- read_csv("physicians-per-1000-people.csv") %>% 
+#   dplyr::rename(iso3c = Code, phys_p1k ='Physicians (per 1,000 people) (per 1,000 people)') %>%
+#   group_by(iso3c) %>% 
+#   slice(tail(row_number(), 1)) %>%
+#   dplyr::select(-!c("iso3c","phys_p1k"))
+# 
+# hbeds <- read_csv("hospital-beds-per-1000-people.csv") %>% 
+#   dplyr::rename(iso3c = Code, hbeds_p100k ='Hospital beds (per 100,000)') %>%
+#   group_by(iso3c) %>% 
+#   slice(tail(row_number(), 1)) %>%
+#   dplyr::select(-!c("iso3c","hbeds_p100k"))
+# 
+# handwash <- read_csv("handwash_estimate.csv") %>%
+#   dplyr::select(-c(6:9)) %>%
+#   dplyr::rename(hwws = 'HWWS prevalence, main estimate', iso3c = iso3) %>%
+#   dplyr::select(-!c("iso3c","hwws"))
+# 
+# rule_of_law <- read.csv("rule of law index.csv")
+# names(rule_of_law) <- str_replace_all(colnames(rule_of_law), "Factor", "X")
+# names(rule_of_law)[-2] <- substr(names(rule_of_law)[-2],1,4)
+# rule_of_law %<>% dplyr::rename("iso3c."=1,rol_all.=2)
+# rule_of_law %<>% dplyr::select(ends_with("."))
+# names(rule_of_law) <- gsub(".", "", names(rule_of_law), fixed = TRUE)
+# rule_of_law$iso3c <- as.character(rule_of_law$iso3c)
+# 
+# w_hours <- read_csv("Mean weekly hours actually worked per employed person.csv") %>%
+#   dplyr::rename(whours = obs_value, country = ref_area.label) %>%
+#   dplyr::filter(classif1.label == "Economic activity (Broad sector): Total") %>%
+#   dplyr::select(-!c("whours","country"))
+# 
+# social_exp <- read_csv("Public social protection expenditure.csv") %>%
+#   dplyr::rename(socialexp = obs_value, country = ref_area.label) %>%
+#   dplyr::select(-!c("socialexp","country"))
+# 
+# health_exp <- read_csv("Total health expenditure.csv") %>%
+#   dplyr::rename(healthexp = obs_value, country = ref_area.label) %>%
+#   dplyr::select(-!c("healthexp","country"))
+# 
+# trust_others <- read_csv("self-reported-trust-attitudes.csv") %>%
+#   dplyr::rename(iso3c = Code, trust_oth ='Trust in others (%)') %>%
+#   group_by(iso3c) %>% 
+#   slice(tail(row_number(), 1)) %>%
+#   dplyr::select(-!c("iso3c","trust_oth"))
+# 
+# trust_pol <- read_csv("public trust in politicians.csv") %>%
+#   dplyr::rename(trust_pol = '2017-2018', iso3c = 'Country ISO3', type="Subindicator Type") %>%
+#   dplyr::filter(Indicator == "Public trust in politicians", type == "1-7 Best") %>%
+#   dplyr::select(-!c("iso3c","trust_pol"))
+# 
+# hdi <- read.csv("Human development index (HDI).csv") %>%
+#   dplyr::rename(hdi = X2018, country = Country) %>%
+#   dplyr::select(-!c("country","hdi"))
+# hdi$country <- as.character(hdi$country)
+# hdi$hdi <- as.numeric(hdi$hdi)
+```
+
+```{r, include=FALSE}
+# df <- merged %>%
+#   dplyr::left_join(wbank, by = "iso3c") %>%
+#   dplyr::left_join(w_hours, by='country') %>%
+#   dplyr::left_join(social_exp, by='country') %>%
+#   dplyr::left_join(health_exp, by='country') %>%
+#   dplyr::left_join(hdi, by='country') %>%
+#   dplyr::left_join(physicians, by='iso3c') %>%
+#   dplyr::left_join(hbeds, by='iso3c') %>%
+#   dplyr::left_join(handwash, by='iso3c') %>%
+#   dplyr::left_join(trust_others, by='iso3c') %>%
+#   dplyr::left_join(trust_pol, by='iso3c') %>%
+#   dplyr::left_join(policy, by=c("iso3c","date")) %>%
+#   dplyr::left_join(rule_of_law, by='iso3c') 
+
+# save(df, file = "df.RData") 
+```
+
+```{r}
+# Load dataframe
+load(file="df.Rdata")
+head(df)
+summary(df)
+```
+
+
+```{r, include=FALSE}
+#Cleaning the data
+df_clean <- df
+df_clean <- df_clean[complete.cases(df_clean$iso3c),]
+
+df_clean <- df_clean %>% 
+  dplyr::select(-c("iso3c","region","income","rol_all","tests_units","life_expectancy","land_area_skm","pop_largest_city","C1","C2","C3","C4","C5","C6","C7","C8","H1","X1","X2","X3","X5","X6","X7","X8"),-starts_with("gcmr"),-starts_with("apple"),-starts_with("ecdc")) %>%
+  dplyr::filter(date >= "2020-01-22")
+
+a <- colnames(df_clean)
+for_delete <- c("gini","unemp", "population","pop_density", "gdp_capita", "dratio", "hdi")
+to_zero <- a[!a %in% for_delete]
+
+df_clean[to_zero][is.na(df_clean[to_zero])] <- 0
+df_clean <- na.omit(df_clean)
+
+# df_clean %<>%
+#   mutate_at(vars(starts_with("C"),starts_with("H"),-c("country","hwws","confirmed","hdi","hbeds_p100k","healthexp")), as.factor)
+# 
+# df_clean <- tibble(df_clean)
+a <- colnames(df_clean)
+```
+
+```{r, results=FALSE}
+# Create First Differences
+df_clean %<>%
+  mutate(lag_confirmed = Hmisc::Lag(confirmed,1)) %>%
+  mutate(dconfirmed = (confirmed/lag_confirmed)-1)
+
+df_clean %<>%
+  mutate(lag_deaths = Hmisc::Lag(deaths,1)) %>%
+  mutate(ddeaths = (deaths/lag_deaths)-1)
+
+df_clean %<>%
+  mutate(lag_recovered = Hmisc::Lag(recovered,1)) %>%
+  mutate(drecovered = (recovered/lag_recovered)-1)
+
+df_clean %<>%
+  mutate(lag_total_tests = Hmisc::Lag(total_tests,1)) %>%
+  mutate(dtotal_tests = (total_tests/lag_total_tests)-1)
+
+df_clean %<>%
+  mutate(lag_stringent = Hmisc::Lag(St,1)) %>%
+  mutate(dstringent = (St/lag_stringent)-1)
+
+df_clean <- df_clean %>% 
+  dplyr::select(-c("lag_confirmed","lag_recovered","lag_total_tests","lag_stringent"))
+
+#Cleaning the data
+a <- colnames(df_clean)
+
+df_clean[a][is.na(df_clean[a])] <- 0
+is.na(df_clean)<-sapply(df_clean, is.infinite)
+df_clean[is.na(df_clean)]<-0
+
+df_clean <- df_clean %>%
+  dplyr::select(country, date, dconfirmed, drecovered, ddeaths, lag_deaths, total_tests, dtotal_tests, St, dstringent, everything())
+
+a <- colnames(df_clean)
+```
+
+
+```{r}
+# Check stationarity with graphs
+panelView(confirmed ~ 1, data = df_clean, index = c("country", "date"), main = "Confirmed", type = "outcome", xlab="", ylab="", axis.lab.gap=20, legendOff = TRUE)
+
+panelView(deaths ~ 1, data = df_clean, index = c("country", "date"), main = "Deaths", type = "outcome", xlab="", ylab="", axis.lab.gap=20, legendOff = TRUE)
+
+panelView(lag_deaths ~ 1, data = df_clean, index = c("country", "date"), main = "Lag of Deaths", type = "outcome", xlab="", ylab="", axis.lab.gap=20, legendOff = TRUE)
+
+panelView(recovered ~ 1, data = df_clean, index = c("country", "date"), main = "Recovered", type = "outcome", xlab="", ylab="", axis.lab.gap=20, legendOff = TRUE)
+
+panelView(total_tests ~ 1, data = df_clean, index = c("country", "date"), main = "Total Tests", type = "outcome", xlab="", ylab="", axis.lab.gap=20, legendOff = TRUE)
+
+panelView(St ~ 1, data = df_clean, index = c("country", "date"), main = "Stringency Index", type = "outcome", xlab="", ylab="", axis.lab.gap=20, legendOff = TRUE)
+
+# Check stationarity of first differences with graphs
+panelView(dconfirmed ~ 1, data = df_clean, index = c("country", "date"), main = "First Difference Confirmed", type = "outcome", xlab="", ylab="", axis.lab.gap=20, legendOff = TRUE)
+
+panelView(ddeaths ~ 1, data = df_clean, index = c("country", "date"), main = "First Difference Deaths", type = "outcome", xlab="", ylab="", axis.lab.gap=20, legendOff = TRUE)
+
+panelView(drecovered ~ 1, data = df_clean, index = c("country", "date"), main = "First Difference Recovered", type = "outcome", xlab="", ylab="", axis.lab.gap=20, legendOff = TRUE)
+
+panelView(dtotal_tests ~ 1, data = df_clean, index = c("country", "date"), main = "First Difference Tests", type = "outcome", xlab="", ylab="", axis.lab.gap=20, legendOff = TRUE)
+
+panelView(dstringent ~ 1, data = df_clean, index = c("country", "date"), main = "First Difference Stringency Index", type = "outcome", xlab="", ylab="", axis.lab.gap=20, legendOff = TRUE)
+```
+
+```{r}
+#Drop non-stationary variables
+df_clean <- df_clean %>% 
+  dplyr::select(-c("confirmed","recovered","deaths","total_tests", "St")) #lag_deaths stay as it will be used for correcting standard error
+
+a <- colnames(df_clean)
+
+df_plm <- pdata.frame(df_clean, index=c("country","date"))
+```
+
+```{r}
+# Check Multicollinearity
+# Correlation Function for Matrix
+cor.prob <- function(X, dfr = nrow(X) - 2) {
+  R <- cor(X)
+  above <- row(R) < col(R)
+  r2 <- R[above]^2
+  Fstat <- r2 * dfr / (1 - r2)
+  R[above] <- 1 - pf(Fstat, 1, dfr)
+
+  cor.mat <- t(R)
+  cor.mat[upper.tri(cor.mat)] <- NA
+  cor.mat
+}
+
+df_pca <- df_plm[-c(1,2)]
+cor <- cor.prob(df_pca)
+cor_r <- cor
+cor_r[cor_r < 0.7] <- NA
+cor_r
+
+# VIF for all variables
+df_plm <- df_plm %>%
+  dplyr::select(-c("lag_deaths"))
+
+plm_model <- plm(ddeaths ~ dtotal_tests+dstringent+population+pop_density+gdp_capita+dratio+gini+unemp+whours+socialexp+healthexp+phys_p1k+hbeds_p100k+hwws+hdi+trust_oth+trust_pol+H2+H3+H4+H5+X4, data=df_plm,model="pooling") #Pooling is used because multicollinearity is only about independent variable so there is no need to control for individual effects using panel methods.
+car::vif(plm_model)
+
+# Removing hdi as a highly correlated variables (VIF>5)
+df_clean <- df_clean %>%
+  dplyr::select(-c("hdi"))
+
+plm_model <- plm(ddeaths ~ dtotal_tests+dstringent+population+pop_density+gdp_capita+dratio+gini+unemp+whours+socialexp+healthexp+phys_p1k+hbeds_p100k+hwws+trust_oth+trust_pol+H2+H3+H4+H5+X4, data=df_plm,model="pooling") #Pooling is used because multicollinearity is only about independent variable so there is no need to control for individual effects using panel methods.
+car::vif(plm_model)
+```
+
+```{r}
+# Cleaned dataframe
+head(df_clean)
+summary(df_clean)
+```
+
+
+```{r, results=FALSE}
+# Converting dataframe into matrix (deaths)
+ds_regressors <- model.matrix(~ -1 +dtotal_tests+population+pop_density+gdp_capita+dratio+gini+unemp+whours+socialexp+healthexp+phys_p1k+hbeds_p100k+hwws+trust_oth+trust_pol+H2+H3+H4+H5+X4, data=df_clean) #dstringent removed as target variable
+
+# Policy as the cause
+ds_cause_p <- model.matrix(~ -1 + dstringent, data=df_clean)
+
+ds_controls_p <- model.matrix(~ -1  +dtotal_tests+population+pop_density+gdp_capita+dratio+gini+unemp+whours+socialexp+healthexp+phys_p1k+hbeds_p100k+hwws+trust_oth+trust_pol+X4+H2+H3+H4+H5, data=df_clean)
+
+# Culture/Social capital as the cause
+ds_cause_c <- model.matrix(~ -1 +whours+hwws+trust_oth+trust_pol+X4, data=df_clean)
+
+ds_controls_c <- model.matrix(~ -1 +dtotal_tests+population+pop_density+gdp_capita+dratio+gini+unemp+socialexp+healthexp+phys_p1k+hbeds_p100k+dstringent+H2+H3+H4+H5, data=df_clean)
+
+ds_outcome <- matrix(df_clean$ddeaths)
+ds_outcome2 <- matrix(df_clean$dconfirmed)
+```
+
+
+```{r}
+# LASSO using glmnet (deaths)
+glm.lasso <- glmnet(x = ds_regressors, y = ds_outcome, family = c("gaussian", "binomial", "poisson", "multinomial","cox", "mgaussian"), alpha=1)
+plot(glm.lasso, xvar="lambda")
+best.glmlambda <- min(glm.lasso$lambda)
+glm.predict <- predict(glm.lasso, type="nonzero")
+tail(glm.predict, n=1) #last value of list which is the smallest lambda
+
+# LASSO using glmnet (confirmed cases)
+glm.lasso <- glmnet(x = ds_regressors, y = ds_outcome2, family = c("gaussian", "binomial", "poisson", "multinomial","cox", "mgaussian"), alpha=1)
+plot(glm.lasso, xvar="lambda")
+best.glmlambda <- min(glm.lasso$lambda)
+glm.predict <- predict(glm.lasso, type="nonzero")
+tail(glm.predict, n=1) #last value of list which is the smallest lambda
+```
+
+
+
+```{r}
+# Factor adjusted LASSO for deaths
+df_plm <- pdata.frame(df_clean, index=c("country","date"))
+
+X <- df_plm %>% dplyr::select(-c("country","date","dconfirmed","drecovered","ddeaths","lag_deaths","dstringent")) #dstringent removed as target variable
+Y <- df_plm$ddeaths
+
+farm <- farm.select(X, Y, cv=TRUE)
+farm
+f <- colnames(X)[farm$beta.chosen]
+g <- farm$coef.chosen
+
+cbind(f,g)
+```
+
+```{r}
+# Factor adjusted LASSO for confirmed cases
+df_plm <- pdata.frame(df_clean, index=c("country","date"))
+
+V <- df_plm %>% dplyr::select(-c("country","date","dconfirmed","drecovered","ddeaths","lag_deaths","dstringent")) #dstringent removed as target variable
+W <- df_plm$dconfirmed
+
+farm2 <- farm.select(V, W, cv=TRUE)
+farm2
+h <- colnames(V)[farm2$beta.chosen]
+i <- farm2$coef.chosen
+
+cbind(h,i)
+```
+
+```{r}
+# Double selection LASSO ddeaths with policy as treatment
+lasso_result <- rlassoEffect(ds_controls_p, ds_outcome, d=ds_cause_p, method="double selection")
+
+summary(lasso_result)
+print_coef(lasso_result, selection.matrix=TRUE)
+```
+
+```{r}
+# Double selection LASSO dconfirmed with policy as treatment
+lasso_result2 <- rlassoEffect(ds_controls_p, ds_outcome2, d=ds_cause_p, method="double selection")
+
+summary(lasso_result2)
+print_coef(lasso_result2, selection.matrix=TRUE)
+```
+
+
+```{r}
+# Check dimension using PCA
+df_pca<-df_clean %>% dplyr::select(-c("country","date","lag_deaths"))
+df_pca<-data.matrix(df_pca)
+phtt::OptDim(df_pca, d.max=20, criteria = c("IC1", "IC2", "IC3",
+                                                   "PC1", "PC2", "PC3"))
+```
+
+```{r, results=FALSE}
+# PHTT Setup 1
+df_phtt <- df_clean
+
+count_country <- df_phtt %>% count(country)
+
+# Edit everytime the data got updated
+T <- count_country$n[1] #number of dates
+N <- nrow(count_country)  #number of countries
+
+m.ddeaths <- matrix(df_phtt$ddeaths, T, N)
+
+m.dstringent <- matrix(df_phtt$dstringent, T, N)
+
+m.dconfirmed <- matrix(df_phtt$dconfirmed, T, N)
+m.drecovered <- matrix(df_phtt$drecovered, T, N)
+m.lag_deaths <- matrix(df_phtt$lag_deaths, T, N)
+
+m.trust_oth <- matrix(df_phtt$trust_oth, T, N)
+m.trust_pol <- matrix(df_phtt$trust_pol, T, N)
+m.whours <- matrix(df_phtt$whours, T, N)
+m.hwws <- matrix(df_phtt$hwws, T, N)
+m.X4 <- matrix(df_phtt$X4, T, N)
+
+m.dtotal_tests <- matrix(df_phtt$dtotal_tests, T, N)
+m.population <- matrix(df_phtt$population, T, N)
+m.gdp_capita <- matrix(df_phtt$gdp_capita, T, N)
+m.dratio <- matrix(df_phtt$dratio, T, N)
+m.unemp <- matrix(df_phtt$unemp, T, N)
+m.socialexp <- matrix(df_phtt$socialexp, T, N)
+m.healthexp <- matrix(df_phtt$healthexp, T, N)
+m.phys_p1k <- matrix(df_phtt$phys_p1k, T, N)
+m.hbeds_p100k <- matrix(df_phtt$hbeds_p100k, T, N)
+m.H2 <- matrix(df_phtt$H2, T, N)
+m.H3 <- matrix(df_phtt$H3, T, N)
+m.H4 <- matrix(df_phtt$H4, T, N)
+m.H5 <- matrix(df_phtt$H5, T, N)
+m.pop_density <- matrix(df_phtt$pop_density, T, N)
+m.gini <- matrix(df_phtt$gini, T, N)
+```
+
+
+```{r}
+# Simple models for deaths
+none <- plm(ddeaths ~ dstringent, data=df_clean, index=c("country", "date"), model="pooling")
+fixed <- plm(ddeaths ~ dstringent, data=df_clean, index=c("country", "date"), model="within")
+time_fixed <- plm(ddeaths ~ dstringent, data=df_clean, index=c("country", "date"), model="within", effect = "time")
+two_fixed <- plm(ddeaths ~ dstringent, data=df_clean, index=c("country", "date"), model="within",effect="twoways")
+interactive <- phtt::Eup(m.ddeaths ~ -1 +m.dstringent, dim.criterion = c("PC1", "PC2", "PC3", "BIC3","IC1", "IC2","IC3", "IPC1", "IPC2", "IPC3"))
+
+summary(none)
+summary(fixed)
+summary(time_fixed)
+summary(two_fixed)
+summary(interactive)
+```
+
+```{r}
+# Model only with trust in other people
+none2 <- plm(ddeaths ~ trust_oth+dstringent, data=df_clean, index=c("country", "date"), model="pooling")
+
+fixed2 <- plm(ddeaths ~ trust_oth+dstringent, data=df_clean, index=c("country", "date"), model="within")
+
+time_fixed2 <- plm(ddeaths ~ trust_oth+dstringent, data=df_clean, index=c("country", "date"), model="within",effect="time")
+
+two_fixed2 <- plm(ddeaths ~ trust_oth+dstringent, data=df_clean, index=c("country", "date"), model="within",effect="twoways")
+
+interactive2 <- phtt::Eup(m.ddeaths ~ -1+m.trust_oth+m.dstringent, dim.criterion = c("PC1", "PC2", "PC3", "BIC3","IC1", "IC2","IC3", "IPC1", "IPC2", "IPC3"))
+
+summary(none2)
+summary(fixed2)
+summary(time_fixed2)
+summary(two_fixed2)
+summary(interactive2)
+```
+
+```{r}
+# Model only with trust in other people (with lag of deaths)
+time_fixed2r <- plm(ddeaths ~ trust_oth+dstringent+lag_deaths, data=df_clean, index=c("country", "date"), model="within",effect="time")
+
+interactive2r <- phtt::Eup(m.ddeaths ~ -1+m.trust_oth+m.dstringent+m.lag_deaths, dim.criterion = c("PC1", "PC2", "PC3", "BIC3","IC1", "IC2","IC3", "IPC1", "IPC2", "IPC3"))
+
+summary(time_fixed2r)
+summary(interactive2r)
+```
+
+```{r}
+# Model with trust (other people and politicians)
+none3 <- plm(ddeaths ~ trust_oth+trust_pol+dstringent, data=df_clean, index=c("country", "date"), model="pooling")
+
+time_fixed3 <- plm(ddeaths ~ trust_oth+trust_pol+dstringent, data=df_clean, index=c("country", "date"), model="within",effect="time")
+
+interactive3 <- phtt::Eup(m.ddeaths ~ -1 +m.trust_oth+m.trust_pol+m.dstringent, dim.criterion = c("PC1", "PC2", "PC3", "BIC3","IC1", "IC2","IC3", "IPC1", "IPC2", "IPC3"))
+
+summary(none3)
+summary(time_fixed3)
+summary(interactive3)
+```
+
+```{r}
+# Model with all cultural variables (trust, fundamental rights, work hours)
+none4 <- plm(ddeaths ~ whours+trust_oth+trust_pol+X4+dstringent, data=df_clean, index=c("country", "date"), model="pooling")
+
+time_fixed4 <- plm(ddeaths ~ whours+trust_oth+trust_pol+X4+dstringent, data=df_clean, index=c("country", "date"), model="within",effect="time")
+
+interactive4 <- phtt::Eup(m.ddeaths ~ -1 +m.whours+m.trust_oth+m.trust_pol+m.X4+m.dstringent, dim.criterion = c("PC1", "PC2", "PC3", "BIC3","IC1", "IC2","IC3", "IPC1", "IPC2", "IPC3"))
+
+summary(none4)
+summary(time_fixed4)
+summary(interactive4)
+```
+
+```{r}
+# Adding controls (Intersection between FARM and double selection LASSO)
+none5 <- plm(ddeaths ~ dtotal_tests+dratio+trust_oth+trust_pol+H2+H3+X4+dstringent, data=df_clean, index=c("country", "date"), model="pooling")
+
+time_fixed5 <- plm(ddeaths ~ dtotal_tests+dratio+trust_oth+trust_pol+H2+H3+X4+dstringent, data=df_clean, index=c("country", "date"), model="within", effect="time")
+
+interactive5 <- phtt::Eup(m.ddeaths ~ -1+m.dtotal_tests+m.dratio+m.trust_oth+m.trust_pol+m.H2+m.H3+m.X4+m.dstringent, dim.criterion = c("PC1", "PC2", "PC3", "BIC3","IC1", "IC2","IC3", "IPC1", "IPC2", "IPC3"))
+
+summary(none5)
+summary(time_fixed5)
+summary(interactive5)
+```
+
+```{r}
+# Adding lag of deaths to control for past information
+none6 <- plm(ddeaths ~ trust_oth+trust_pol+dstringent+lag_deaths, data=df_clean, index=c("country", "date"), model="pooling")
+
+time_fixed6 <- plm(ddeaths ~ trust_oth+trust_pol+dstringent+lag_deaths, data=df_clean, index=c("country", "date"), model="within",effect="time")
+
+interactive6 <- phtt::Eup(m.ddeaths ~ -1+m.trust_oth+m.trust_pol+m.dstringent+m.lag_deaths, dim.criterion = c("PC1", "PC2", "PC3", "BIC3","IC1", "IC2","IC3", "IPC1", "IPC2", "IPC3"))
+
+summary(none6)
+summary(time_fixed6)
+summary(interactive6)
+```
+
+```{r}
+# Model with all cultural variables and lag of deaths
+none8 <- plm(ddeaths ~ whours+trust_oth+trust_pol+X4+dstringent+lag_deaths, data=df_clean, index=c("country", "date"), model="pooling")
+
+time_fixed8 <- plm(ddeaths ~ whours+trust_oth+trust_pol+X4+dstringent+lag_deaths, data=df_clean, index=c("country", "date"), model="within",effect="time")
+
+interactive8 <- phtt::Eup(m.ddeaths ~ -1 +m.whours+m.trust_oth+m.trust_pol+m.X4+m.dstringent+m.lag_deaths, dim.criterion = c("PC1", "PC2", "PC3", "BIC3","IC1", "IC2","IC3", "IPC1", "IPC2", "IPC3"))
+
+summary(none8)
+summary(time_fixed8)
+summary(interactive8)
+```
+
+```{r}
+# Model with LASSO controls and lag of deaths
+none7 <- plm(ddeaths ~ dtotal_tests+dratio+trust_oth+trust_pol+H2+H3+X4+dstringent+lag_deaths, data=df_clean, index=c("country", "date"), model="pooling")
+
+time_fixed7 <- plm(ddeaths ~ dtotal_tests+dratio+trust_oth+trust_pol+H2+H3+X4+dstringent+lag_deaths, data=df_clean, index=c("country", "date"), model="within", effect="time")
+
+interactive7 <- phtt::Eup(m.ddeaths ~ -1+m.dtotal_tests+m.dratio+m.trust_oth+m.trust_pol+m.H2+m.H3+m.X4+m.dstringent+m.lag_deaths, dim.criterion = c("PC1", "PC2", "PC3", "BIC3","IC1", "IC2","IC3", "IPC1", "IPC2", "IPC3"))
+
+summary(none7)
+summary(time_fixed7)
+summary(interactive7)
+```
+
+```{r}
+# Robustness check
+# Checking endogeneity between cultural variables to stringency index
+endogeneity_stringent <- plm(dstringent ~ trust_oth, data=df_clean, index=c("country", "date"), model="pooling", effect="time")
+
+summary(endogeneity_stringent)
+```
+
+```{r}
+# Simple models for confirmed cases
+c_none <- plm(dconfirmed ~ dstringent, data=df_clean, index=c("country", "date"), model="pooling")
+c_fixed <- plm(dconfirmed ~ dstringent, data=df_clean, index=c("country", "date"), model="within")
+c_time_fixed <- plm(dconfirmed ~ dstringent, data=df_clean, index=c("country", "date"), model="within", effect = "time")
+c_two_fixed <- plm(dconfirmed ~ dstringent, data=df_clean, index=c("country", "date"), model="within",effect="twoways")
+c_interactive <- phtt::Eup(m.dconfirmed ~ -1 +m.dstringent, dim.criterion = c("PC1", "PC2", "PC3", "BIC3","IC1", "IC2","IC3", "IPC1", "IPC2", "IPC3"))
+
+summary(c_none)
+summary(c_fixed)
+summary(c_time_fixed)
+summary(c_two_fixed)
+summary(c_interactive)
+```
+
+```{r}
+# Model only with trust in other people for confirmed cases
+c_none2 <- plm(dconfirmed ~ trust_oth+dstringent, data=df_clean, index=c("country", "date"), model="pooling")
+
+c_time_fixed2 <- plm(dconfirmed ~ trust_oth+dstringent, data=df_clean, index=c("country", "date"), model="within",effect="time")
+
+c_interactive2 <- phtt::Eup(m.dconfirmed ~ -1+m.trust_oth+m.dstringent, dim.criterion = c("PC1", "PC2", "PC3", "BIC3","IC1", "IC2","IC3", "IPC1", "IPC2", "IPC3"))
+
+summary(c_none2)
+summary(c_time_fixed2)
+summary(c_interactive2)
+```
+
+```{r}
+# Adding controls (Intersection between FARM and double selection LASSO) for confirmed cases
+c_none5 <- plm(dconfirmed ~ dtotal_tests+H2+H3+dstringent, data=df_clean, index=c("country", "date"), model="pooling")
+
+c_time_fixed5 <- plm(dconfirmed ~ dtotal_tests+H2+H3+dstringent, data=df_clean, index=c("country", "date"), model="within", effect="time")
+
+c_interactive5 <- phtt::Eup(m.dconfirmed ~ -1+m.dtotal_tests+m.H2+m.H3+m.X4+m.dstringent, dim.criterion = c("PC1", "PC2", "PC3", "BIC3","IC1", "IC2","IC3", "IPC1", "IPC2", "IPC3"))
+
+summary(c_none5)
+summary(c_time_fixed5)
+summary(c_interactive5)
+```
+
+```{r}
+# Adding lag of deaths to control for past information 
+c_none6 <- plm(dconfirmed ~ trust_oth+dstringent+lag_deaths, data=df_clean, index=c("country", "date"), model="pooling")
+
+c_time_fixed6 <- plm(dconfirmed ~ trust_oth+dstringent+lag_deaths, data=df_clean, index=c("country", "date"), model="within",effect="time")
+
+c_interactive6 <- phtt::Eup(m.dconfirmed ~ -1+m.trust_oth+m.dstringent+m.lag_deaths, dim.criterion = c("PC1", "PC2", "PC3", "BIC3","IC1", "IC2","IC3", "IPC1", "IPC2", "IPC3"))
+
+summary(c_none6)
+summary(c_time_fixed6)
+summary(c_interactive6)
+```
+
+```{r}
+# Model with controls and lag of deaths for confirmed cases
+c_none7 <- plm(dconfirmed ~ dtotal_tests+H2+H3+dstringent+lag_deaths, data=df_clean, index=c("country", "date"), model="pooling")
+
+c_time_fixed7 <- plm(dconfirmed ~ dtotal_tests+H2+H3+dstringent+lag_deaths, data=df_clean, index=c("country", "date"), model="within", effect="time")
+
+c_interactive7 <- phtt::Eup(m.dconfirmed ~ -1+m.dtotal_tests+m.H2+m.H3+m.dstringent+m.lag_deaths, dim.criterion = c("PC1", "PC2", "PC3", "BIC3","IC1", "IC2","IC3", "IPC1", "IPC2", "IPC3"))
+
+summary(c_none7)
+summary(c_time_fixed7)
+summary(c_interactive7)
+```
